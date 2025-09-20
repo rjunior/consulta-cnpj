@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.bat - Script de instalação para Consulta CNPJ
+# install.sh - Script de instalação para Consulta CNPJ
 # Para ser executado no Git Bash no Windows
 
 # Configuração de cores e encoding
@@ -20,6 +20,11 @@ echo ""
 if [[ "$OSTYPE" != "msys" && "$OSTYPE" != "cygwin" ]]; then
     echo "❌ Este script deve ser executado no Git Bash!"
     echo "Baixe em: https://git-scm.com/download/win"
+    echo ""
+    echo "💡 DICA: Se você está no Windows, use:"
+    echo "   install-windows.bat  (para Prompt de Comando)"
+    echo "   install.sh           (para Git Bash)"
+    echo ""
     read -p "Pressione Enter para sair..."
     exit 1
 fi
@@ -93,6 +98,7 @@ else
             echo "1. Verifique sua conexão com a internet"
             echo "2. Baixe manualmente: $REPO_URL"
             echo "3. Execute este script dentro da pasta do projeto"
+            echo "4. Use install-windows.bat se estiver no Prompt de Comando"
             echo ""
             read -p "Pressione Enter para sair..."
             exit 1
