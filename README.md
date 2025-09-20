@@ -14,6 +14,7 @@ Script em Go para consultar informações de CNPJ através da API ReceitaWS, ger
 - **Baixe**: https://git-scm.com/download/win
 - **Instale**: Git for Windows (inclui Git Bash)
 - **Necessário**: Para compilação, clone e execução dos scripts
+- **Recomendado**: Reiniciar o computador após instalação
 
 ### 3. Verificar Instalação
 Abra o **Git Bash** e execute:
