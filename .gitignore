@@ -1,0 +1,19 @@
+# IDE
+.DS_Store
+
+# Arquivos de compilação
+*.exe
+*.out
+
+# Arquivos de log
+*.log
+
+# Arquivos de configuração
+*.conf
+*.ini
+*.yml
+*.yaml
+
+# Arquivos de dependências
+go.mod
+go.sum
