@@ -32,10 +32,10 @@ Deve retornar as versões instaladas.
 2. **Baixe e execute o instalador**:
 ```bash
 # Baixar o instalador
-curl -O https://raw.githubusercontent.com/rjunior/consulta-cnpj/main/install.bat
+curl -O https://raw.githubusercontent.com/rjunior/consulta-cnpj/main/install.sh
 
 # Executar (fará clone automático do repositório)
-./install.bat
+./install.sh
 ```
 
 **O que acontece durante a execução:**
