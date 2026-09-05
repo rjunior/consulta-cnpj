@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
+	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,19 +17,33 @@ import (
 	"github.com/rjunior/consulta-cnpj/utils"
 )
 
+type formatoCSV string
+
+const (
+	formatoColuna formatoCSV = "coluna"
+	formatoLinha  formatoCSV = "linha"
+)
+
+var (
+	errFormatoInvalido = errors.New("formato invalido")
+	errUsoInvalido     = errors.New("informe exatamente um CNPJ")
+)
+
+type cliArgs struct {
+	cnpj    string
+	formato formatoCSV
+}
+
 func main() {
-	// Verificar se foram fornecidos argumentos
-	if len(os.Args) < 2 {
-		fmt.Println("Uso: consulta-cnpj <CNPJ>")
-		fmt.Println("Exemplo: consulta-cnpj 11.222.333/0001-81")
-		fmt.Println("")
-		fmt.Println("API utilizada: ReceitaWS (https://receitaws.com.br/)")
-		fmt.Println("Nota: A API gratuita tem limitações de taxa (3 consultas por minuto)")
+	args, err := parseArgs(os.Args[1:])
+	if err != nil {
+		fmt.Printf("Erro: %v\n\n", err)
+		imprimirUso(os.Stdout)
 		os.Exit(1)
 	}
 
 	// Pegar CNPJ do argumento da linha de comando
-	cnpj := os.Args[1]
+	cnpj := args.cnpj
 
 	fmt.Printf("Iniciando consulta do CNPJ %s via ReceitaWS...\n", cnpj)
 	fmt.Println()
@@ -57,20 +75,52 @@ func main() {
 	nomeArquivo := fmt.Sprintf("empresas_cnpj_%s.csv", time.Now().Format("20060102_150405"))
 	caminhoCompleto := filepath.Join(diretorioAtual, nomeArquivo)
 
-	if err := salvarCSV(empresa, caminhoCompleto); err != nil {
+	if err := salvarCSV(empresa, caminhoCompleto, args.formato); err != nil {
 		fmt.Printf("❌ Erro ao salvar CSV: %v\n", err)
 		return
 	}
 
 	fmt.Printf("\n🎉 Consulta concluída!")
 	fmt.Printf("\n📁 Arquivo salvo em: %s\n", caminhoCompleto)
-	fmt.Println("\nColunas disponíveis no CSV:")
+	fmt.Printf("\nFormato do CSV: %s\n", args.formato)
+	fmt.Println("\nDados disponíveis no CSV:")
 	fmt.Println("- Dados básicos: CNPJ, Razão Social, Nome Fantasia, Data Abertura")
 	fmt.Println("- Situação: Situação Cadastral, Data Situação, Motivo")
 	fmt.Println("- Atividade: CNAE Principal, Descrição, Total de Atividades")
 	fmt.Println("- Endereço: Logradouro, Número, Bairro, CEP, Município, UF")
 	fmt.Println("- Contato: Telefone, Email")
 	fmt.Println("- Outros: Capital Social, Porte, Quantidade de Sócios, Natureza Jurídica")
+}
+
+func parseArgs(args []string) (cliArgs, error) {
+	fs := flag.NewFlagSet("consulta-cnpj", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+
+	formato := fs.String("formato", string(formatoColuna), "formato do CSV: coluna ou linha")
+	if err := fs.Parse(args); err != nil {
+		return cliArgs{}, err
+	}
+
+	if fs.NArg() != 1 {
+		return cliArgs{}, errUsoInvalido
+	}
+
+	formatoSelecionado := formatoCSV(*formato)
+	switch formatoSelecionado {
+	case formatoColuna, formatoLinha:
+		return cliArgs{cnpj: fs.Arg(0), formato: formatoSelecionado}, nil
+	default:
+		return cliArgs{}, fmt.Errorf("%w: %s", errFormatoInvalido, *formato)
+	}
+}
+
+func imprimirUso(w io.Writer) {
+	fmt.Fprintln(w, "Uso: consulta-cnpj [--formato coluna|linha] <CNPJ>")
+	fmt.Fprintln(w, "Exemplo: consulta-cnpj --formato coluna 11.222.333/0001-81")
+	fmt.Fprintln(w, "Exemplo: consulta-cnpj --formato linha 11.222.333/0001-81")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "API utilizada: ReceitaWS (https://receitaws.com.br/)")
+	fmt.Fprintln(w, "Nota: A API gratuita tem limitações de taxa (3 consultas por minuto)")
 }
 
 // Função para extrair CNAE principal das atividades
@@ -87,34 +137,80 @@ func contarSocios(qsa []map[string]interface{}) int {
 }
 
 // Função para salvar dados em CSV
-func salvarCSV(empresa *models.CNPJResponse, caminhoArquivo string) error {
+func salvarCSV(empresa *models.CNPJResponse, caminhoArquivo string, formato formatoCSV) error {
 	arquivo, err := os.Create(caminhoArquivo)
 	if err != nil {
 		return fmt.Errorf("erro ao criar arquivo: %v", err)
 	}
 	defer arquivo.Close()
 
-	writer := csv.NewWriter(arquivo)
-	defer writer.Flush()
+	valores := valoresCSV(empresa)
 
-	// Escrever cabeçalho
-	header := []string{
+	switch formato {
+	case formatoLinha:
+		writer := csv.NewWriter(arquivo)
+
+		if err := writer.Write(cabecalhoCSV()); err != nil {
+			return fmt.Errorf("erro ao escrever cabeçalho: %v", err)
+		}
+
+		if err := writer.Write(valores); err != nil {
+			return fmt.Errorf("erro ao escrever registro: %v", err)
+		}
+
+		writer.Flush()
+		if err := writer.Error(); err != nil {
+			return fmt.Errorf("erro ao finalizar CSV: %v", err)
+		}
+	case formatoColuna:
+		for _, valor := range valores {
+			if err := escreverLinhaCSVColuna(arquivo, valor); err != nil {
+				return fmt.Errorf("erro ao escrever registro: %v", err)
+			}
+		}
+	default:
+		return fmt.Errorf("%w: %s", errFormatoInvalido, formato)
+	}
+
+	return nil
+}
+
+func escreverLinhaCSVColuna(w io.Writer, valor string) error {
+	if valor == "" {
+		_, err := io.WriteString(w, "\"\"\n")
+		return err
+	}
+
+	var linha bytes.Buffer
+	writer := csv.NewWriter(&linha)
+	if err := writer.Write([]string{valor}); err != nil {
+		return err
+	}
+
+	writer.Flush()
+	if err := writer.Error(); err != nil {
+		return err
+	}
+
+	_, err := w.Write(linha.Bytes())
+	return err
+}
+
+func cabecalhoCSV() []string {
+	return []string{
 		"CNPJ", "Razão Social", "Nome Fantasia", "Data Abertura", "Situação Cadastral",
 		"Data Situação", "Motivo Situação", "Situação Especial", "Data Situação Especial",
 		"CNAE Principal", "Descrição CNAE Principal", "Total Atividades", "Natureza Jurídica",
 		"Logradouro", "Número", "Complemento", "Bairro", "CEP", "Município", "UF",
 		"Telefone", "Email", "Capital Social", "Porte", "Qtd Sócios", "EFR",
 	}
+}
 
-	if err := writer.Write(header); err != nil {
-		return fmt.Errorf("erro ao escrever cabeçalho: %v", err)
-	}
-
-	// Escrever dados
+func valoresCSV(empresa *models.CNPJResponse) []string {
 	cnaeCode, cnaeDesc := extrairCNAEPrincipal(empresa.Atividades)
 	qtdSocios := contarSocios(empresa.QSA)
 
-	registro := []string{
+	return []string{
 		empresa.CNPJ,
 		empresa.Nome,
 		empresa.Fantasia,
@@ -142,10 +238,4 @@ func salvarCSV(empresa *models.CNPJResponse, caminhoArquivo string) error {
 		strconv.Itoa(qtdSocios),
 		empresa.EFR,
 	}
-
-	if err := writer.Write(registro); err != nil {
-		return fmt.Errorf("erro ao escrever registro: %v", err)
-	}
-
-	return nil
 }

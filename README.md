@@ -161,8 +161,10 @@ source ~/.bashrc
 
 ### Sintaxe Básica:
 ```bash
-consulta-cnpj <CNPJ>
+consulta-cnpj [--formato coluna|linha] <CNPJ>
 ```
+
+Por padrão, o CSV é gerado no formato `coluna`: um valor por linha, sem cabeçalho.
 
 ### Exemplos de Uso:
 
@@ -174,6 +176,16 @@ consulta-cnpj 11.222.333/0001-81
 **Sem pontuação:**
 ```bash
 consulta-cnpj 11222333000181
+```
+
+**Formato em coluna (padrão, sem cabeçalho):**
+```bash
+consulta-cnpj --formato coluna 11222333000181
+```
+
+**Formato em linha (com cabeçalho):**
+```bash
+consulta-cnpj --formato linha 11222333000181
 ```
 
 **De qualquer diretório:**
@@ -190,8 +202,10 @@ consulta-cnpj 27.865.757/0001-02
 - **Nome**: `empresas_cnpj_AAAAMMDD_HHMMSS.csv`
 - **Local**: Diretório atual de execução
 - **Exemplo**: `empresas_cnpj_20241215_143052.csv`
+- **Formato padrão**: `coluna`, com um valor por linha e sem cabeçalho
+- **Formato alternativo**: `linha`, com cabeçalho e uma linha de valores
 
-### Colunas do CSV:
+### Dados exportados no CSV:
 - **Básicas**: CNPJ, Razão Social, Nome Fantasia, Data Abertura
 - **Situação**: Situação Cadastral, Data Situação, Motivo
 - **Atividades**: CNAE Principal, Descrição, Total de Atividades
